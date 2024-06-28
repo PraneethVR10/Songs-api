@@ -8,23 +8,24 @@ import (
 	"net/http"
 	"os"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 )
 
 const (
-	API_PATH = "/apis/v2/songs"
+	APIPath = "/apis/v2/songs"
 )
 
-type songs struct {
-	Name        string
-	Artist_Name string
-	Id          string
+type Song struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	ArtistName string `json:"artist_name"`
 }
 
-type server struct {
-	dbHost string
-	dbName string
-	dbPass string
+type Server struct {
+	DBHost string
+	DBName string
+	DBPass string
 }
 
 func main() {
@@ -40,7 +41,7 @@ func main() {
 
 	apiPath := os.Getenv("API_PATH")
 	if apiPath == "" {
-		apiPath = API_PATH
+		apiPath = APIPath
 	}
 
 	dbName := os.Getenv("DB_NAME")
@@ -48,61 +49,48 @@ func main() {
 		dbName = "server"
 	}
 
-	s := server{
-		dbHost: dbHost,
-		dbPass: dbPass,
-		dbName: dbName,
+	s := Server{
+		DBHost: dbHost,
+		DBPass: dbPass,
+		DBName: dbName,
 	}
 
 	r := mux.NewRouter()
 	r.HandleFunc(apiPath, s.getSongs).Methods(http.MethodGet)
-	http.ListenAndServe(":4000", r)
+	log.Fatal(http.ListenAndServe(":4000", r))
 }
 
-func (s server) getSongs(w http.ResponseWriter, r *http.Request) {
-
+func (s Server) getSongs(w http.ResponseWriter, r *http.Request) {
 	db := s.openConnection()
+	defer db.Close()
 
-	//read all the songs
-
-	rows, err := db.Query("select * from songs")
-
+	rows, err := db.Query("SELECT id, name, artist_name FROM songs")
 	if err != nil {
-		log.Fatalf("querying the songs table %s\n", err.Error())
+		log.Fatalf("Error querying the songs table: %s\n", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+	defer rows.Close()
 
-	song := []Song{}
+	songs := []Song{}
 	for rows.Next() {
-		var id, name, artist_name string
-		err := rows.Scan(&id, &name, &artist_name)
+		var song Song
+		err := rows.Scan(&song.ID, &song.Name, &song.ArtistName)
 		if err != nil {
-			log.Fatalf("while scanning the row %s\n", err.Error())
+			log.Fatalf("Error scanning song row: %s\n", err.Error())
+			continue
 		}
-		aSong := Song{
-			Id:          id,
-			Name:        name,
-			Artist_Name: artist_name,
-		}
-		song = append(song, aSong)
+		songs = append(songs, song)
 	}
-	json.NewEncoder(w).Encode(song)
 
-	//close connection
-
-	s.closeConnection(db)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(songs)
 }
 
-func (s server) openConnection() *sql.DB {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", "root", s.dbPass, s.dbHost, s.dbName))
+func (s Server) openConnection() *sql.DB {
+	db, err := sql.Open("mysql", fmt.Sprintf("root:%s@tcp(%s)/%s", s.DBPass, s.DBHost, s.DBName))
 	if err != nil {
-		log.Fatalf("opening the connection to the database: %s\n", err.Error())
+		log.Fatalf("Error opening the database connection: %s\n", err.Error())
 	}
 	return db
-}
-
-func (s server) closeConnection(db *sql.DB) {
-	err := db.Close()
-	if err != nil {
-		log.Fatalf("closing connection %s\n", err.Error())
-	}
 }
