@@ -17,6 +17,6 @@ spec:
     spec:
       containers:
       - name: Songs-api
-        image: praneethvr/Songs-api:latest
+        image: praneethvr/songs-api:latest
         ports:
         - containerPort: 8080
