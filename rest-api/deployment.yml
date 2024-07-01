@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rest-api
+  namespace: rest-api
+  labels:
+    app: rest-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rest-api
+  template:
+    metadata:
+      labels:
+        app: rest-api
+    spec:
+      containers:
+      - name: Songs-api
+        image: praneethvr/Songs-api:latest
+        ports:
+        - containerPort: 8080
