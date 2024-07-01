@@ -1,22 +1,41 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rest-api
-  namespace: rest-api
+  creationTimestamp: null
   labels:
     app: rest-api
+  name: rest-api
+  namespace: rest-api
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: rest-api
+  strategy: {}
   template:
     metadata:
+      creationTimestamp: null
       labels:
         app: rest-api
     spec:
       containers:
-      - name: Songs-api
-        image: praneethvr/songs-api:latest
-        ports:
-        - containerPort: 8080
+      - image: praneethvr/songs-api:latest
+        name: songs-api
+        resources: {}
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: restapi-cm
+              key: host
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: restapi-cm
+              key: dbname
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: mysql-password
+              key: rootpassword
+status: {}
